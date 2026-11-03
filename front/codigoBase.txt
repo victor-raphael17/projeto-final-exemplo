@@ -1,0 +1,39 @@
+const api = axios.create({
+  baseURL: 'http://127.0.0.1:8000',
+  withCredentials: true,
+  withXSRFToken: true,
+  headers: { Accept: 'application/json' },
+});
+
+// Start CSRF protection before registration or login.
+await api.get('/sanctum/csrf-cookie');
+
+// Create the first account. Use a new email the first time you run this.
+const registration = await api.post('/api/register', {
+  name: 'Ada Lovelace',
+  email: 'ada@example.com',
+  password: 'example-password',
+  password_confirmation: 'example-password',
+});
+
+console.log(registration.status, registration.data);
+
+const me = await api.get('/api/me');
+
+// POST, PUT, PATCH e DELETE recebem X-XSRF-TOKEN automaticamente.
+const books = await api.get('/api/books');
+
+axios.defaults.baseURL = 'http://127.0.0.1:8000';
+axios.defaults.withCredentials = true;
+axios.defaults.withXSRFToken = true;
+
+await api.post('/api/logout');
+
+await api.get('/sanctum/csrf-cookie');
+
+const login = await api.post('/api/login', {
+  email: 'ada@example.com',
+  password: 'example-password',
+});
+
+console.log(login.status, login.data);

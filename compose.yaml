@@ -46,7 +46,7 @@ services:
   frontend:
     container_name: frontend
     build:
-      context: ./frontend/frontend
+      context: ./front
       dockerfile: Dockerfile
     expose:
       - "80"
