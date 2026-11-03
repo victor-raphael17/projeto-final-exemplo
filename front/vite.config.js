@@ -17,7 +17,10 @@ export default defineConfig(({ mode }) => {
         const referer = request.headers.referer
         if (referer) {
           const parsedReferer = new URL(referer)
-          proxyRequest.setHeader('Referer', `${parsedReferer.protocol}//${parsedReferer.hostname}${parsedReferer.pathname}${parsedReferer.search}`)
+          proxyRequest.setHeader(
+            'Referer',
+            `${parsedReferer.protocol}//${parsedReferer.hostname}${parsedReferer.pathname}${parsedReferer.search}`,
+          )
         }
       })
     },

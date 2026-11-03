@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Aula 2 do Módulo 4: continuação da BookShelf API com autenticação por sessão, cookies e proteção CSRF usando Laravel Sanctum.">
+<title>Laravel — Aula 2: sessão e cookie com Sanctum</title>
+<style>
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f6f7f9;
+  --ink: #22283a;
+  --ink-soft: #5b6478;
+  --line: #e3e6ec;
+  --accent: #f53003;
+  --accent-dark: #b52605;
+  --accent-soft: #fdeae4;
+  --green: #1a7f4b;
+  --green-soft: #f0faf4;
+  --amber: #9a6700;
+  --blue: #1861ab;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --bg-hover: #ececf1;
+  --tip-border: #bfe6cd;
+  --warn-bg: #fdf6ec;
+  --warn-border: #f0dcb8;
+  --concept-bg: #f0f6fd;
+  --concept-border: #c4dcf5;
+  --verify-bg: #f6fcf8;
+  --verify-border: #79c294;
+  --m-get-bg: #e7f3ff;
+  --m-post-bg: #e9f8ef;
+  --m-put-bg: #fdf3e2;
+  --m-del-bg: #fdeceb;
+  --m-del-ink: #b3261e;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1319;
+    --bg-soft: #161b24;
+    --ink: #e2e6ef;
+    --ink-soft: #99a3b6;
+    --line: #262d3a;
+    --accent: #f5502b;
+    --accent-dark: #ff8266;
+    --accent-soft: #3b1d13;
+    --green: #4ec583;
+    --green-soft: #142319;
+    --amber: #dcaa3d;
+    --blue: #6ab0f3;
+    --bg-hover: #202737;
+    --tip-border: #24503a;
+    --warn-bg: #251e0f;
+    --warn-border: #4c3c18;
+    --concept-bg: #131f2e;
+    --concept-border: #21405f;
+    --verify-bg: #121f19;
+    --verify-border: #2f6c48;
+    --m-get-bg: #152b44;
+    --m-post-bg: #153020;
+    --m-put-bg: #33280f;
+    --m-del-bg: #3a1817;
+    --m-del-ink: #f28b82;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1319;
+  --bg-soft: #161b24;
+  --ink: #e2e6ef;
+  --ink-soft: #99a3b6;
+  --line: #262d3a;
+  --accent: #f5502b;
+  --accent-dark: #ff8266;
+  --accent-soft: #3b1d13;
+  --green: #4ec583;
+  --green-soft: #142319;
+  --amber: #dcaa3d;
+  --blue: #6ab0f3;
+  --bg-hover: #202737;
+  --tip-border: #24503a;
+  --warn-bg: #251e0f;
+  --warn-border: #4c3c18;
+  --concept-bg: #131f2e;
+  --concept-border: #21405f;
+  --verify-bg: #121f19;
+  --verify-border: #2f6c48;
+  --m-get-bg: #152b44;
+  --m-post-bg: #153020;
+  --m-put-bg: #33280f;
+  --m-del-bg: #3a1817;
+  --m-del-ink: #f28b82;
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-soft: #f6f7f9;
+  --ink: #22283a;
+  --ink-soft: #5b6478;
+  --line: #e3e6ec;
+  --accent: #f53003;
+  --accent-dark: #b52605;
+  --accent-soft: #fdeae4;
+  --green: #1a7f4b;
+  --green-soft: #f0faf4;
+  --amber: #9a6700;
+  --blue: #1861ab;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --bg-hover: #ececf1;
+  --tip-border: #bfe6cd;
+  --warn-bg: #fdf6ec;
+  --warn-border: #f0dcb8;
+  --concept-bg: #f0f6fd;
+  --concept-border: #c4dcf5;
+  --verify-bg: #f6fcf8;
+  --verify-border: #79c294;
+  --m-get-bg: #e7f3ff;
+  --m-post-bg: #e9f8ef;
+  --m-put-bg: #fdf3e2;
+  --m-del-bg: #fdeceb;
+  --m-del-ink: #b3261e;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+@media (prefers-reduced-motion: no-preference) {
+  html { scroll-behavior: smooth; }
+}
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  line-height: 1.65;
+}
+.skip-link {
+  position: absolute; top: -100px; left: 16px; z-index: 100;
+  background: var(--accent); color: #fff; font-weight: 600; font-size: .9rem;
+  padding: 10px 16px; border-radius: 0 0 10px 10px; text-decoration: none;
+}
+.skip-link:focus { top: 0; }
+main:focus { outline: 2px solid var(--accent); outline-offset: 4px; }
+.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); min-height: 100vh; }
+.sidebar {
+  border-right: 1px solid var(--line);
+  background: var(--bg-soft);
+  padding: 28px 18px 40px;
+  position: sticky; top: 0;
+  height: 100vh; overflow-y: auto;
+}
+.brand { font-weight: 800; font-size: 1.08rem; margin: 0; letter-spacing: .2px; }
+.brand span { color: var(--accent); }
+.brand-sub { margin: 2px 0 20px; font-size: .8rem; color: var(--ink-soft); }
+.toc { list-style: none; margin: 0; padding: 0; }
+.toc li { margin: 2px 0; }
+.toc a {
+  display: block; padding: 7px 10px; border-radius: 8px;
+  color: var(--ink-soft); text-decoration: none;
+  font-size: .85rem; line-height: 1.35;
+}
+.toc a:hover { background: var(--bg-hover); color: var(--ink); }
+.toc a.active { background: var(--accent-soft); color: var(--accent-dark); font-weight: 600; }
+.toc-back {
+  display: block; margin: 22px 0 0; padding: 9px 10px;
+  border-top: 1px solid var(--line);
+  font-size: .8rem; color: var(--ink-soft); text-decoration: none;
+}
+.toc-back:hover { color: var(--accent-dark); }
+main { padding: 44px 52px 110px; max-width: 900px; }
+header.hero { margin-bottom: 8px; }
+.hero-kicker {
+  color: var(--accent-dark); font-weight: 700; font-size: .8rem;
+  text-transform: uppercase; letter-spacing: 1.2px; margin: 0 0 6px;
+}
+h1 { font-size: 2.1rem; line-height: 1.18; margin: 0 0 .35em; letter-spacing: -.5px; }
+.lead { font-size: 1.06rem; color: var(--ink-soft); max-width: 62ch; }
+section.step {
+  margin-top: 70px; padding-top: 42px;
+  border-top: 1px solid var(--line);
+  scroll-margin-top: 20px;
+}
+section#introducao { margin-top: 34px; border-top: none; padding-top: 0; scroll-margin-top: 20px; }
+.step-badge {
+  display: inline-block; background: var(--accent); color: #fff;
+  font-size: .7rem; font-weight: 700; padding: 4px 11px; border-radius: 999px;
+  text-transform: uppercase; letter-spacing: .9px; vertical-align: 3px; margin-right: 10px;
+}
+.step-badge--alt { background: #64708c; }
+h2 { font-size: 1.55rem; margin: 0 0 .45em; letter-spacing: -.3px; }
+h3 { font-size: 1.14rem; margin: 2.1em 0 .5em; }
+h4 { margin: 1.5em 0 .5em; font-size: 1rem; }
+p, li { font-size: .96rem; }
+a { color: var(--accent-dark); }
+strong { color: var(--ink); }
+code {
+  font-family: var(--mono); font-size: .86em;
+  background: var(--bg-soft); border: 1px solid var(--line);
+  padding: 1px 5px; border-radius: 5px; white-space: nowrap;
+}
+h2 code, h3 code { font-size: .8em; }
+.code { margin: 1.25em 0; border-radius: 10px; overflow: hidden; border: 1px solid #23262d; }
+.code figcaption {
+  font-family: var(--mono); font-size: .74rem; padding: 7px 14px;
+  background: #17191e; color: #9da5b4;
+  display: flex; align-items: center; gap: 9px;
+}
+.code figcaption::before { content: ""; width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+.code--term figcaption::before { background: #3fb950; }
+.code--php figcaption::before { background: #58a6ff; }
+.code--file figcaption::before { background: #d29922; }
+.code--js figcaption::before { background: #bc8cff; }
+.code--term { border-left: 3px solid #3fb950; }
+.code--php { border-left: 3px solid #58a6ff; }
+.code--file { border-left: 3px solid #d29922; }
+.code--js { border-left: 3px solid #bc8cff; }
+.code pre {
+  margin: 0; padding: 16px 18px;
+  background: #0d1117; color: #e6edf3;
+  overflow-x: auto; font-size: .84rem; line-height: 1.6;
+}
+.code pre code { background: none; border: none; padding: 0; font-size: inherit; color: inherit; white-space: pre; }
+.code pre .diff-add,
+.code pre .diff-del {
+  display: inline-block;
+  min-width: calc(100% + 36px);
+  margin: 0 -18px;
+  padding: 0 18px;
+  position: relative;
+}
+.code pre .diff-add { background: rgba(63, 185, 80, .15); }
+.code pre .diff-del { background: rgba(248, 81, 73, .14); }
+.code pre .diff-add::before,
+.code pre .diff-del::before { position: absolute; left: 6px; font-weight: 600; }
+.code pre .diff-add::before { content: "+"; color: #3fb950; }
+.code pre .diff-del::before { content: "\2212"; color: #f85149; }
+.code pre .diff-add:empty::after,
+.code pre .diff-del:empty::after { content: "\00a0"; }
+.code pre .pr { color: #6e7681; user-select: none; -webkit-user-select: none; }
+.code pre .out { color: #768390; }
+.code pre .ph { color: #d29922; }
+.code--out { border-left: 3px solid #6e7681; }
+.code--out figcaption::before { background: #6e7681; }
+.code--out pre { color: #adbac7; background: #0d1117; }
+.code--out figcaption { font-style: italic; }
+.code-copy {
+  margin-left: auto; flex: 0 0 auto;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: .72rem; line-height: 1;
+  color: #9da5b4; background: transparent;
+  border: 1px solid #2b2f38; border-radius: 6px;
+  padding: 4px 8px; cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.code-copy:hover { color: #e6edf3; border-color: #3d434f; background: #22262e; }
+.code-copy:focus-visible { outline: 2px solid #58a6ff; outline-offset: 2px; }
+.code-copy svg { width: 13px; height: 13px; flex: 0 0 auto; }
+.code-copy .code-copy-check { display: none; }
+.code-copy.is-copied { color: #3fb950; border-color: #26512f; }
+.code-copy.is-copied .code-copy-icon { display: none; }
+.code-copy.is-copied .code-copy-check { display: inline; }
+.callout { border-radius: 10px; padding: 13px 18px 14px; margin: 1.4em 0; border: 1px solid; }
+.callout p { margin: .35em 0; font-size: .92rem; }
+.callout .callout-label {
+  font-weight: 700; font-size: .74rem; text-transform: uppercase;
+  letter-spacing: .9px; margin: 0 0 2px;
+}
+.callout--tip { background: var(--green-soft); border-color: var(--tip-border); }
+.callout--tip .callout-label { color: var(--green); }
+.callout--warn { background: var(--warn-bg); border-color: var(--warn-border); }
+.callout--warn .callout-label { color: var(--amber); }
+.callout--concept { background: var(--concept-bg); border-color: var(--concept-border); }
+.callout--concept .callout-label { color: var(--blue); }
+.verify {
+  background: var(--verify-bg); border: 1.5px dashed var(--verify-border); border-radius: 10px;
+  padding: 16px 20px 14px; margin: 1.8em 0 0;
+}
+.verify h4 {
+  margin: 0 0 10px; color: var(--green); font-size: .82rem;
+  text-transform: uppercase; letter-spacing: .8px;
+}
+.checklist { list-style: none; padding: 0; margin: 0; }
+.checklist li { margin: 7px 0; }
+.checklist label { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; font-size: .93rem; }
+.checklist input { margin-top: 4px; accent-color: var(--green); flex: 0 0 auto; }
+.verify > p { font-size: .92rem; margin: 0 0 8px; }
+.verify .code { margin-top: 6px; }
+a:focus-visible,
+.toc a:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px;
+}
+.table-wrap { overflow-x: auto; margin: 1.25em 0; }
+table { border-collapse: collapse; width: 100%; font-size: .89rem; }
+th, td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; }
+th { background: var(--bg-soft); font-size: .84rem; }
+td code { white-space: nowrap; }
+.m {
+  font-family: var(--mono); font-weight: 700; font-size: .72rem;
+  padding: 2px 8px; border-radius: 6px; white-space: nowrap;
+}
+.m-get { background: var(--m-get-bg); color: var(--blue); }
+.m-post { background: var(--m-post-bg); color: var(--green); }
+.m-put { background: var(--m-put-bg); color: var(--amber); }
+.m-delete { background: var(--m-del-bg); color: var(--m-del-ink); }
+ol.flow { padding-left: 1.3em; }
+ol.flow li { margin: .45em 0; }
+.legend { list-style: none; padding: 0; margin: .8em 0; }
+.legend li { display: flex; align-items: center; gap: 10px; margin: 5px 0; font-size: .92rem; }
+.legend .dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+.dot--term { background: #3fb950; }
+.dot--php { background: #58a6ff; }
+.dot--file { background: #d29922; }
+.dot--add { background: #3fb950; }
+.dot--del { background: #f85149; }
+.dot--ctx { background: #6e7681; }
+.dot--out { background: #6e7681; }
+footer.end {
+  margin-top: 80px; padding-top: 24px; border-top: 1px solid var(--line);
+  color: var(--ink-soft); font-size: .85rem;
+}
+@media (max-width: 940px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--line); }
+  main { padding: 30px 20px 90px; }
+  h1 { font-size: 1.7rem; }
+  code { white-space: normal; overflow-wrap: anywhere; }
+}
+</style>
+</head>
+<body>
+<a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+<div class="layout">
+
+<nav class="sidebar" aria-label="Sumário">
+  <p class="brand">BookShelf <span>Laravel</span></p>
+  <p class="brand-sub">Módulo 4 · Aula 2 — Sanctum</p>
+  <ol class="toc">
+    <li><a href="#introducao">Introdução — estado inicial da API</a></li>
+    <li><a href="#proxy-compose">Antes do Passo 1 — proxy no Compose</a></li>
+    <li><a href="#passo-1">Passo 1 — Como o navegador mantém o login</a></li>
+    <li><a href="#passo-2">Passo 2 — Ativando o modo stateful</a></li>
+    <li><a href="#passo-3">Passo 3 — Preparando o usuário</a></li>
+    <li><a href="#passo-4">Passo 4 — Cadastro, login e logout</a></li>
+    <li><a href="#passo-5">Passo 5 — Protegendo as rotas</a></li>
+    <li><a href="#passo-6">Passo 6 — Chamando a API no navegador</a></li>
+    <li><a href="#passo-7">Passo 7 — Sessão e logout</a></li>
+    <li><a href="#passo-8">Passo 8 — Conferindo no navegador</a></li>
+    <li><a href="#passo-9">Passo 9 — O que falta para produção</a></li>
+    <li><a href="#passo-10">Passo 10 — Revisão</a></li>
+    <li><a href="#adendo-bearer-cookie">Adendo — migrando de Bearer para sessão e CSRF</a></li>
+  </ol>
+  <a class="toc-back" href="laravel.html">← Aula 1: construindo a BookShelf API</a>
+</nav>
+
+<main id="conteudo" tabindex="-1">
+
+<header class="hero">
+  <p class="hero-kicker">Curso de Programação — Módulo 4 · Aula 2</p>
+  <h1>Protegendo a BookShelf API com sessão e Laravel Sanctum</h1>
+  <p class="lead">Na Aula 1, construímos a API de livros e gêneros e deixamos suas rotas públicas. Agora vamos continuar esse mesmo projeto: cadastro e login criam uma sessão, o navegador guarda o cookie e o Laravel exige autenticação para acessar o catálogo.</p>
+</header>
+
+<section id="introducao">
+  <h2>Introdução — estado inicial da API</h2>
+
+  <p>Partimos do estado final da aula anterior: o Laravel 12 já tem Sanctum instalado por <code>php artisan install:api</code>, o banco já foi migrado e <code>routes/api.php</code> expõe os CRUDs de <code>genres</code> e <code>books</code> sem autenticação. Nesta aula, vamos manter os controllers, services, Form Requests e Resources do catálogo e alterar o acesso às rotas.</p>
+
+  <p>Nesta aula, o frontend, a API e um Nginx de proxy rodam em containers separados. O navegador abre somente <code>http://localhost</code>. O proxy envia a página para o container do frontend e encaminha <code>/api/...</code> e <code>/sanctum/...</code> ao container da API. Assim, para o navegador, a página e as chamadas à API têm a mesma origem: mesmo protocolo, host e porta.</p>
+
+  <p>Use <code>localhost</code> no endereço aberto no navegador e nas configurações Laravel <code>APP_URL</code> e <code>SANCTUM_STATEFUL_DOMAINS</code>, como neste projeto. <code>localhost</code> e <code>127.0.0.1</code> são hosts diferentes para cookies e para a identificação stateful do Sanctum. Dentro da rede Docker, o Nginx encontra a API pelo nome do serviço, <code>api:8000</code>; esse endereço interno não aparece no código do navegador. O endereço <code>0.0.0.0</code> serve para um servidor escutar conexões, não para abrir a página.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Método</th><th>Rota</th><th>O que faz</th></tr></thead>
+      <tbody>
+        <tr><td><span class="m m-post">POST</span></td><td><code>/api/register</code></td><td>Cria a conta e inicia a sessão</td></tr>
+        <tr><td><span class="m m-post">POST</span></td><td><code>/api/login</code></td><td>Confere e-mail e senha e inicia a sessão</td></tr>
+        <tr><td><span class="m m-get">GET</span></td><td><code>/api/me</code></td><td>Retorna o usuário conectado</td></tr>
+        <tr><td><span class="m m-post">POST</span></td><td><code>/api/logout</code></td><td>Encerra a sessão</td></tr>
+        <tr><td colspan="2"><code>/api/genres</code> e <code>/api/books</code></td><td>CRUDs da Aula 1; agora exigem uma sessão autenticada</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout callout--concept">
+    <p class="callout-label">O nome pode confundir</p>
+    <p><code>/sanctum/csrf-cookie</code> prepara a proteção CSRF. Esse cookie <strong>não</strong> faz o login. Quem identifica o usuário é o cookie de sessão, criado depois do login. O token CSRF ajuda o Laravel a confirmar que uma operação como cadastro, atualização ou exclusão veio do seu frontend.</p>
+  </div>
+
+  <div class="callout callout--warn">
+    <p class="callout-label">Somente para estudo local</p>
+    <p>O cadastro fica público e todas as contas podem alterar o mesmo catálogo. Antes de publicar, decida quem pode criar contas e implemente propriedade dos dados e regras de acesso.</p>
+  </div>
+
+  <div class="callout callout--tip">
+    <p class="callout-label">Como ler os trechos alterados</p>
+    <p>Nos arquivos que já existiam, o fundo verde com <code>+</code> indica linhas adicionadas; o fundo vermelho com <code>−</code> indica linhas removidas; linhas sem destaque continuam iguais. O botão Copiar ignora as linhas removidas.</p>
+  </div>
+
+  <h3>O que você precisa ter</h3>
+  <ul>
+    <li>O projeto e o banco do BookShelf funcionando como ficaram ao fim da Aula 1.</li>
+    <li>Laravel Sanctum instalado por <code>php artisan install:api</code> e a tabela <code>users</code> criada pelas migrations da Aula 1.</li>
+    <li>Os serviços do projeto iniciados com <code>docker compose up --build</code> e o frontend acessível em <code>http://localhost</code>.</li>
+  </ul>
+</section>
+
+<section class="step" id="proxy-compose">
+  <h2><span class="step-badge step-badge--alt">Antes do Passo 1</span> Unindo frontend e API com o proxy do Compose</h2>
+
+  <p>Os containers do frontend e da API têm endereços internos diferentes. Sem um ponto de entrada comum, o navegador teria que chamar uma URL de API com outra porta e configurar CORS. Adicione um serviço Nginx ao <code>compose.yaml</code>: ele publica a porta 80 e encaminha cada caminho ao container correto.</p>
+
+  <figure class="code code--file">
+    <figcaption>compose.yaml — serviço proxy</figcaption>
+    <pre><code>  proxy:
+    container_name: proxy
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    depends_on:
+      api:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    ports:
+      - "80:80"</code></pre>
+  </figure>
+
+  <p>O proxy precisa de um arquivo <code>nginx/default.conf</code> com regras para os três caminhos. Os nomes <code>api</code> e <code>frontend</code> são os nomes dos serviços no Compose:</p>
+
+  <figure class="code code--file">
+    <figcaption>nginx/Dockerfile</figcaption>
+    <pre><code>FROM nginx:alpine
+COPY default.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80</code></pre>
+  </figure>
+
+  <figure class="code code--file">
+    <figcaption>nginx/default.conf</figcaption>
+    <pre><code>server {
+    listen 80;
+    server_name localhost;
+
+    location /api/ {
+        proxy_pass http://api:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /sanctum/ {
+        proxy_pass http://api:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass http://frontend:80;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}</code></pre>
+  </figure>
+
+  <p>Suba o projeto e abra <code>http://localhost</code>. No navegador, as chamadas ficam em caminhos relativos como <code>/api/me</code> e <code>/sanctum/csrf-cookie</code>. Não use <code>http://api:8000</code> no frontend: esse nome só é resolvido pelos containers na rede Docker.</p>
+
+  <div class="callout callout--tip">
+    <p class="callout-label">Same-origin</p>
+    <p>O navegador vê todas as chamadas no mesmo endereço <code>http://localhost</code>. O Nginx faz o encaminhamento interno. Por isso, este fluxo não precisa de CORS nem de <code>withCredentials: true</code>.</p>
+  </div>
+</section>
+
+<section class="step" id="passo-1">
+  <h2><span class="step-badge">Passo 1</span> Como o navegador mantém o login</h2>
+
+  <p>Depois do login, o Laravel cria uma sessão e devolve um cookie. O frontend envia chamadas relativas ao mesmo endereço, como <code>/api/me</code>. O navegador envia cookies automaticamente em chamadas same-origin, e o proxy encaminha o caminho à API. O navegador não precisa conhecer a porta interna do container Laravel.</p>
+
+  <ol class="flow">
+    <li>O frontend chama <code>/sanctum/csrf-cookie</code> na origem atual, <code>http://localhost</code>.</li>
+    <li>O frontend envia e-mail e senha para <code>/api/login</code> na mesma origem.</li>
+    <li>O Laravel cria a sessão e devolve o cookie de sessão.</li>
+    <li>O navegador envia o cookie nas próximas chamadas à API.</li>
+  </ol>
+
+  <p>Em operações que mudam dados, como <code>POST</code>, <code>PUT</code>, <code>PATCH</code> e <code>DELETE</code>, o frontend também envia o valor do cookie <code>XSRF-TOKEN</code> no cabeçalho <code>X-XSRF-TOKEN</code>. O Axios pode adicionar esse cabeçalho com <code>withXSRFToken: true</code>. O cookie de sessão é enviado pelo navegador e não pode ser lido pelo JavaScript.</p>
+
+  <p>Como o browser chama <code>/api/...</code> e <code>/sanctum/...</code> no mesmo <code>http://localhost</code> em que abriu o frontend, as chamadas não são cross-origin e não precisam de configuração CORS. Não defina uma URL absoluta da API no frontend para este fluxo.</p>
+
+  <div class="callout callout--tip">
+    <p class="callout-label">Para este projeto</p>
+    <p>A autenticação é feita pelo navegador do usuário. O proxy só encaminha a requisição; ele não faz login pelo usuário nem guarda a sessão em nome dele.</p>
+  </div>
+</section>
+
+<section class="step" id="passo-2">
+  <h2><span class="step-badge">Passo 2</span> Ativando o modo stateful do Sanctum</h2>
+
+  <p>O esqueleto criado na Aula 1 já tem um bloco <code>withMiddleware</code> em <code>bootstrap/app.php</code>. Adicione a linha marcada dentro desse bloco para que as requisições stateful da API usem a sessão do Laravel:</p>
+
+  <figure class="code code--php">
+    <figcaption>bootstrap/app.php (trecho alterado)</figcaption>
+    <pre><code>-&gt;withMiddleware(function (Middleware $middleware): void {
+<span class="diff-add">    $middleware-&gt;statefulApi();</span>
+})</code></pre>
+  </figure>
+
+  <p>Ative o modo stateful e liste o host que o navegador usa para abrir o frontend. Neste projeto, esse host é <code>localhost</code>, então a porta 80 padrão não precisa aparecer:</p>
+
+  <figure class="code code--file">
+    <figcaption>.env</figcaption>
+    <pre><code>APP_URL=http://localhost
+SANCTUM_STATEFUL_DOMAINS=localhost
+SESSION_SECURE_COOKIE=false</code></pre>
+  </figure>
+
+  <p>Esses são os valores efetivos do projeto: o <code>.env</code> define <code>localhost</code> para o Laravel e para o Sanctum. O arquivo <code>config/sanctum.php</code> também traz uma lista padrão que inclui <code>127.0.0.1</code>, mas ela só é usada quando <code>SANCTUM_STATEFUL_DOMAINS</code> não está definido. Use no navegador o mesmo host configurado no <code>.env</code>: <code>http://localhost</code>.</p>
+
+  <p>Se publicar o proxy em outra porta, inclua a porta vista pelo navegador, por exemplo <code>localhost:8080</code>. Use a porta publicada do proxy, não a porta interna dos containers. Em produção com HTTPS, use <code>SESSION_SECURE_COOKIE=true</code>.</p>
+
+  <p>Deixe <code>SESSION_DOMAIN</code> sem configurar (ou como <code>null</code>) neste caso local. O front e a API aparecem ao navegador no mesmo host, e cookies não são separados por porta. Como o proxy oferece uma origem única, não é necessário publicar nem configurar CORS para este fluxo; CORS só seria necessário se o navegador chamasse outra origem diretamente.</p>
+
+  <div class="verify">
+    <h4>Como conferir</h4>
+    <ul class="checklist">
+      <li><label><input type="checkbox" data-ck="p2-1"> <span><code>bootstrap/app.php</code> chama <code>$middleware-&gt;statefulApi()</code>.</span></label></li>
+      <li><label><input type="checkbox" data-ck="p2-2"> <span><code>APP_URL=http://localhost</code>.</span></label></li>
+      <li><label><input type="checkbox" data-ck="p2-3"> <span><code>SANCTUM_STATEFUL_DOMAINS=localhost</code> e <code>SESSION_SECURE_COOKIE=false</code> no ambiente local.</span></label></li>
+      <li><label><input type="checkbox" data-ck="p2-4"> <span><code>SESSION_DOMAIN</code> está sem configuração neste caso local.</span></label></li>
+    </ul>
+  </div>
+</section>
+
+<section class="step" id="passo-3">
+  <h2><span class="step-badge">Passo 3</span> Preparando o usuário</h2>
+
+  <p>O Laravel já traz o model <code>User</code> e a tabela <code>users</code>. Para este fluxo, o model não precisa do trait <code>HasApiTokens</code>: não vamos criar tokens Bearer.</p>
+
+  <p>Confira se <code>app/Models/User.php</code> permite criar nome, e-mail e senha, e se a senha recebe hash automaticamente:</p>
+
+  <figure class="code code--php">
+    <figcaption>app/Models/User.php (trechos)</figcaption>
+    <pre><code>protected $fillable = [
+    'name',
+    'email',
+    'password',
+];
+
+protected function casts(): array
+{
+    return [
+        'email_verified_at' =&gt; 'datetime',
+        'password' =&gt; 'hashed',
+    ];
+}</code></pre>
+  </figure>
+
+  <p>O cast <code>hashed</code> faz com que a senha seja salva como hash quando o usuário é criado. Se esse cast já existe no seu model, não precisa alterá-lo.</p>
+</section>
+
+<section class="step" id="passo-4">
+  <h2><span class="step-badge">Passo 4</span> Cadastro, login e logout</h2>
+
+  <p>Vamos manter a organização da Aula 1: Form Requests validam os dados, o service executa a autenticação e o controller devolve JSON.</p>
+
+  <h3>Validação</h3>
+  <p>Crie os dois Form Requests:</p>
+
+  <figure class="code code--term">
+    <figcaption>Terminal</figcaption>
+    <pre><code>php artisan make:request RegisterRequest
+php artisan make:request LoginRequest
+php artisan make:resource UserResource
+php artisan make:controller Api/AuthController</code></pre>
+  </figure>
+
+  <p>Substitua o conteúdo de <code>RegisterRequest.php</code> por este:</p>
+
+  <figure class="code code--php">
+    <figcaption>app/Http/Requests/RegisterRequest.php</figcaption>
+    <pre><code>&lt;?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class RegisterRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'name' =&gt; ['required', 'string', 'max:255'],
+            'email' =&gt; ['required', 'email', 'max:255', 'unique:users,email'],
+            'password' =&gt; ['required', 'string', 'min:8', 'confirmed'],
+        ];
+    }
+}</code></pre>
+  </figure>
+
+  <p>Em <code>LoginRequest.php</code>, valide somente os dados necessários para entrar:</p>
+
+  <figure class="code code--php">
+    <figcaption>app/Http/Requests/LoginRequest.php</figcaption>
+    <pre><code>&lt;?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class LoginRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'email' =&gt; ['required', 'email'],
+            'password' =&gt; ['required', 'string'],
+        ];
+    }
+}</code></pre>
+  </figure>
+
+  <h3>Dados que podem sair na resposta</h3>
+  <p>O resource retorna só os campos públicos do usuário:</p>
+
+  <figure class="code code--php">
+    <figcaption>app/Http/Resources/UserResource.php</figcaption>
+    <pre><code>&lt;?php
+
+namespace App\Http\Resources;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class UserResource extends JsonResource
+{
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' =&gt; $this-&gt;id,
+            'name' =&gt; $this-&gt;name,
+            'email' =&gt; $this-&gt;email,
+        ];
+    }
+}</code></pre>
+  </figure>
+
+  <h3>Regras de sessão</h3>
+  <p>Crie ou atualize <code>app/Services/AuthService.php</code>:</p>
+
+  <figure class="code code--php">
+    <figcaption>app/Services/AuthService.php</figcaption>
+    <pre><code>&lt;?php
+
+namespace App\Services;
+
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
+
+class AuthService
+{
+    public function register(array $data, Request $request): User
+    {
+        $user = User::create($data);
+
+        Auth::guard('web')-&gt;login($user);
+        $request-&gt;session()-&gt;regenerate();
+
+        return $user;
+    }
+
+    public function login(array $credentials, Request $request): User
+    {
+        if (! Auth::guard('web')-&gt;attempt($credentials)) {
+            throw ValidationException::withMessages([
+                'email' =&gt; ['E-mail ou senha inválidos.'],
+            ]);
+        }
+
+        $request-&gt;session()-&gt;regenerate();
+
+        return Auth::guard('web')-&gt;user();
+    }
+
+    public function logout(Request $request): void
+    {
+        Auth::guard('web')-&gt;logout();
+
+        $request-&gt;session()-&gt;invalidate();
+        $request-&gt;session()-&gt;regenerateToken();
+    }
+}</code></pre>
+  </figure>
+
+  <p>O Laravel cria uma sessão no cadastro e no login. <code>regenerate()</code> troca o identificador da sessão depois da autenticação. No logout, invalidamos a sessão e criamos um novo token CSRF.</p>
+
+  <h3>Controller</h3>
+  <p>Use este controller em <code>app/Http/Controllers/Api/AuthController.php</code>:</p>
+
+  <figure class="code code--php">
+    <figcaption>app/Http/Controllers/Api/AuthController.php</figcaption>
+    <pre><code>&lt;?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\LoginRequest;
+use App\Http\Requests\RegisterRequest;
+use App\Http\Resources\UserResource;
+use App\Services\AuthService;
+use Illuminate\Http\Request;
+
+class AuthController extends Controller
+{
+    public function __construct(
+        private AuthService $authService
+    ) {}
+
+    public function register(RegisterRequest $request)
+    {
+        $user = $this-&gt;authService-&gt;register(
+            $request-&gt;validated(),
+            $request
+        );
+
+        return (new UserResource($user))
+            -&gt;response()
+            -&gt;setStatusCode(201)
+            -&gt;header('Cache-Control', 'no-store');
+    }
+
+    public function login(LoginRequest $request)
+    {
+        $user = $this-&gt;authService-&gt;login(
+            $request-&gt;validated(),
+            $request
+        );
+
+        return (new UserResource($user))
+            -&gt;response()
+            -&gt;header('Cache-Control', 'no-store');
+    }
+
+    public function me(Request $request)
+    {
+        return new UserResource($request-&gt;user());
+    }
+
+    public function logout(Request $request)
+    {
+        $this-&gt;authService-&gt;logout($request);
+
+        return response()-&gt;noContent();
+    }
+}</code></pre>
+  </figure>
+
+  <p>O cadastro e o login retornam dados do usuário. O Laravel envia os cookies nos cabeçalhos da resposta; o controller não devolve um campo <code>token</code>.</p>
+</section>
+
+<section class="step" id="passo-5">
+  <h2><span class="step-badge">Passo 5</span> Protegendo as rotas</h2>
+
+  <p>Edite o <code>routes/api.php</code> que terminou a Aula 1. Cadastro e login ficam públicos; <code>me</code>, logout e os dois recursos do catálogo passam para o grupo protegido. As linhas verdes e vermelhas comparam a rota antiga com o arquivo final:</p>
+
+  <figure class="code code--php">
+    <figcaption>routes/api.php — alterações sobre o arquivo da Aula 1</figcaption>
+    <pre><code>&lt;?php
+
+<span class="diff-add">use App\Http\Controllers\Api\AuthController;</span>
+use App\Http\Controllers\Api\BookController;
+use App\Http\Controllers\Api\GenreController;
+use Illuminate\Support\Facades\Route;
+
+<span class="diff-add">Route::post('register', [AuthController::class, 'register'])</span>
+<span class="diff-add">    -&gt;middleware('throttle:6,1');</span>
+
+<span class="diff-add">Route::post('login', [AuthController::class, 'login'])</span>
+<span class="diff-add">    -&gt;middleware('throttle:6,1');</span>
+
+<span class="diff-add">Route::middleware('auth:sanctum')-&gt;group(function () {</span>
+<span class="diff-add">    Route::get('me', [AuthController::class, 'me']);</span>
+<span class="diff-add">    Route::post('logout', [AuthController::class, 'logout']);</span>
+
+<span class="diff-del">Route::apiResource('genres', GenreController::class)</span>
+<span class="diff-del">    -&gt;whereNumber('genre');</span>
+<span class="diff-add">    Route::apiResource('genres', GenreController::class)</span>
+<span class="diff-add">        -&gt;whereNumber('genre');</span>
+
+<span class="diff-del">Route::apiResource('books', BookController::class)</span>
+<span class="diff-del">    -&gt;whereNumber('book');</span>
+<span class="diff-add">    Route::apiResource('books', BookController::class)</span>
+<span class="diff-add">        -&gt;whereNumber('book');</span>
+<span class="diff-add">});</span></code></pre>
+  </figure>
+
+  <p>O grupo <code>auth:sanctum</code> agora protege <code>me</code>, logout e os dois CRUDs. Com a configuração stateful ativa, Sanctum autentica o navegador pela sessão; sem uma sessão válida, a API responde <strong>401</strong>.</p>
+
+  <div class="callout callout--tip">
+    <p class="callout-label">O catálogo continua igual</p>
+    <p>Os controllers, Form Requests, services e resources de <code>books</code> e <code>genres</code> continuam como na Aula 1. A mudança no catálogo está nas rotas: agora elas exigem uma sessão autenticada.</p>
+  </div>
+</section>
+
+<section class="step" id="passo-6">
+  <h2><span class="step-badge">Passo 6</span> Chamando a API no navegador</h2>
+
+  <p>O frontend deste projeto centraliza as chamadas em <code>front/src/api/http.js</code>, um helper baseado em Axios. Com o proxy do Compose, deixe <code>VITE_API_BASE_URL</code> sem definir: os caminhos relativos usam <code>http://localhost</code>, e o Nginx encaminha <code>/api</code> e <code>/sanctum</code> aos containers. Não é necessário <code>withCredentials</code> nesse fluxo same-origin.</p>
+
+  <figure class="code code--js">
+    <figcaption>Frontend — módulo de cadastro usando o helper do projeto</figcaption>
+    <pre><code>import { api } from '../http.js';
+
+export function register(account) {
+  return api('/api/register', {
+    method: 'POST',
+    body: account,
+  });
+}
+
+// Exemplo de dados enviados pelo formulário:
+const account = {
+  name: 'Ada Lovelace',
+  email: 'ada@example.com',
+  password: 'example-password',
+  password_confirmation: 'example-password',
+};
+
+await register(account);</code></pre>
+  </figure>
+
+  <p>O helper exporta <code>api(path, options)</code>. Ele inicializa o cookie CSRF antes da primeira chamada à API, inclusive se ela for <code>GET</code>. Depois que a inicialização dá certo, as chamadas seguintes reutilizam os cookies guardados pelo navegador; chamadas simultâneas compartilham a mesma inicialização. Um novo carregamento da página inicializa o helper novamente.</p>
+
+  <figure class="code code--js">
+    <figcaption>JavaScript — consulta de usuário e catálogo</figcaption>
+    <pre><code>const me = await api('/api/me');
+const books = await api('/api/books');</code></pre>
+  </figure>
+
+  <p>O Axios do helper está configurado com <code>withXSRFToken: true</code>: ele lê o cookie <code>XSRF-TOKEN</code> e envia <code>X-XSRF-TOKEN</code> nas operações que alteram dados. Por usarem a mesma origem, o navegador envia o cookie de sessão sem <code>withCredentials: true</code>. Não salve a sessão em <code>localStorage</code> nem envie <code>Authorization: Bearer</code>.</p>
+</section>
+
+<section class="step" id="passo-7">
+  <h2><span class="step-badge">Passo 7</span> Sessão e logout</h2>
+
+  <p>O cookie mantém a sessão até o usuário sair ou ela expirar. O tempo é controlado pela configuração de sessão do Laravel, como <code>SESSION_LIFETIME</code>.</p>
+
+  <p>O botão de logout faz um <code>POST</code> para <code>/api/logout</code>. O helper do projeto envia o cabeçalho CSRF automaticamente:</p>
+
+  <figure class="code code--js">
+    <figcaption>JavaScript — logout pelo helper</figcaption>
+    <pre><code>await api('/api/logout', { method: 'POST' });</code></pre>
+  </figure>
+
+  <p>Depois disso, <code>/api/me</code> deve responder <strong>401</strong>. Para entrar novamente com a conta criada no passo anterior, use o mesmo helper. Ele cuida da inicialização CSRF; não é preciso chamar o endpoint manualmente antes de cada requisição:</p>
+
+  <figure class="code code--js">
+    <figcaption>JavaScript — login</figcaption>
+    <pre><code>const login = await api('/api/login', {
+  method: 'POST',
+  body: {
+    email: 'ada@example.com',
+    password: 'example-password',
+  },
+});
+
+console.log(login);</code></pre>
+  </figure>
+
+  <p>Um <code>POST /api/login</code> com credenciais inválidas retorna <strong>422</strong> e uma mensagem de validação; isso não indica falha do proxy ou do cookie CSRF.</p>
+
+  <p>Para encurtar ou alongar a sessão, ajuste <code>SESSION_LIFETIME</code> em minutos no <code>.env</code>. Por exemplo, <code>SESSION_LIFETIME=120</code> mantém a sessão por até duas horas sem atividade.</p>
+</section>
+
+<section class="step" id="passo-8">
+  <h2><span class="step-badge">Passo 8</span> Conferindo no navegador</h2>
+
+  <p>Abra as ferramentas de desenvolvedor do navegador, selecione a aba <strong>Network</strong> e percorra o fluxo. No primeiro pedido à API após carregar a página, o helper chama <code>/sanctum/csrf-cookie</code> uma vez e guarda o estado de inicialização:</p>
+
+  <ol class="flow">
+    <li><code>GET /sanctum/csrf-cookie</code> em <code>http://localhost</code> responde e cria o cookie <code>XSRF-TOKEN</code>.</li>
+    <li>Na abertura sem usuário autenticado, <code>GET /api/me</code> responde <strong>401</strong> e o frontend mostra a tela de login.</li>
+    <li><code>POST /api/register</code> responde <strong>201</strong>, cria a conta e inicia a sessão.</li>
+    <li><code>GET /api/me</code> responde <strong>200</strong> com os dados do usuário.</li>
+    <li><code>GET /api/books</code> responde <strong>200</strong> com o catálogo.</li>
+    <li><code>POST /api/logout</code> responde <strong>204</strong>.</li>
+    <li>Uma nova chamada a <code>GET /api/me</code> responde <strong>401</strong>.</li>
+    <li><code>POST /api/login</code> responde <strong>200</strong> com credenciais válidas e inicia outra sessão.</li>
+  </ol>
+
+  <p>Nas chamadas que alteram dados, confira se o frontend envia <code>X-XSRF-TOKEN</code>. Nenhuma chamada de navegador precisa enviar <code>Authorization: Bearer</code>.</p>
+
+  <div class="callout callout--tip">
+    <p class="callout-label">Erros comuns</p>
+    <ul>
+      <li><strong><code>404</code> ou <code>502</code> nas rotas da API:</strong> confira se o serviço <code>proxy</code> está no Compose, se as regras Nginx encaminham <code>/api</code> e <code>/sanctum</code> para <code>api:8000</code> e se o container da API está saudável.</li>
+      <li><strong>O browser tenta chamar <code>127.0.0.1</code> ou a porta <code>8000</code>:</strong> remova a URL absoluta do frontend e use caminhos relativos como <code>/api/me</code>. Abra o app em <code>http://localhost</code>.</li>
+      <li><strong>401:</strong> não há sessão válida. Confira se o login funcionou e se o navegador enviou o cookie de sessão.</li>
+      <li><strong>419:</strong> o token CSRF não chegou ou não corresponde à sessão. Faça de novo a chamada a <code>/sanctum/csrf-cookie</code> e envie <code>X-XSRF-TOKEN</code>.</li>
+      <li><strong>422 no login:</strong> o e-mail ou a senha não conferem. O frontend mostra a mensagem de validação no formulário. Nos outros formulários, confira os campos enviados.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="step" id="passo-9">
+  <h2><span class="step-badge">Passo 9</span> O que falta para produção</h2>
+
+  <ul>
+    <li>Use HTTPS e mantenha <code>SESSION_SECURE_COOKIE=true</code> em produção.</li>
+    <li>Decida se o cadastro público deve continuar aberto.</li>
+    <li>Defina quem pode ver, criar, editar e apagar livros. A autenticação confirma quem é o usuário; Policies e regras de propriedade decidem o que ele pode fazer.</li>
+    <li>Não registre cookies de sessão ou cabeçalhos CSRF em logs.</li>
+  </ul>
+
+  <div class="callout callout--warn">
+    <p class="callout-label">Atenção ao exemplo</p>
+    <p>Todos os usuários registrados ainda compartilham o mesmo catálogo. Faça a implementação de propriedade e autorização antes de usar este projeto com dados reais.</p>
+  </div>
+</section>
+
+<section class="step" id="passo-10">
+  <h2><span class="step-badge">Passo 10</span> Revisão</h2>
+
+  <p>Nesta segunda aula do Módulo 4, você ativou a autenticação stateful do Sanctum, criou cadastro/login por sessão e protegeu os CRUDs existentes com <code>auth:sanctum</code>.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Parte</th><th>Como funciona</th></tr></thead>
+      <tbody>
+        <tr><td>Identidade do usuário</td><td>Cookie de sessão do Laravel</td></tr>
+        <tr><td>Proteção contra CSRF</td><td>Cookie <code>XSRF-TOKEN</code> enviado no cabeçalho <code>X-XSRF-TOKEN</code></td></tr>
+        <tr><td>Rotas privadas</td><td>Middleware <code>auth:sanctum</code></td></tr>
+        <tr><td>Endereços</td><td>Browser em <code>http://localhost</code>; proxy encaminha os caminhos da API internamente para <code>api:8000</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="verify">
+    <h4>Checklist final</h4>
+    <ul class="checklist">
+      <li><label><input type="checkbox" data-ck="p10-1"> <span><code>statefulApi()</code> está ativo e o endereço local do frontend consta em <code>SANCTUM_STATEFUL_DOMAINS</code>.</span></label></li>
+      <li><label><input type="checkbox" data-ck="p10-2"> <span>A camada Axios inicializa <code>/sanctum/csrf-cookie</code> antes da primeira requisição à API e reutiliza a inicialização nas chamadas seguintes.</span></label></li>
+      <li><label><input type="checkbox" data-ck="p10-3"> <span>O login cria uma sessão e não devolve Bearer token.</span></label></li>
+      <li><label><input type="checkbox" data-ck="p10-4"> <span>As rotas de livros e gêneros exigem <code>auth:sanctum</code>.</span></label></li>
+      <li><label><input type="checkbox" data-ck="p10-5"> <span>O logout encerra a sessão e as chamadas seguintes a <code>/api/me</code> retornam <strong>401</strong>.</span></label></li>
+    </ul>
+  </div>
+</section>
+
+<section class="step" id="adendo-bearer-cookie">
+  <h2><span class="step-badge step-badge--alt">Adendo</span> Migrando de Bearer para sessão e CSRF</h2>
+
+  <p>Se você seguiu uma versão anterior do tutorial que emitia Bearer tokens, use este adendo para migrar o cliente navegador para o fluxo desta aula.</p>
+  <p>As instruções de tokens abaixo presumem que a versão antiga usava Personal Access Tokens do Sanctum. Se ela usava JWT ou outro pacote, o frontend ainda pode migrar para sessão, mas o middleware antigo precisa ser tratado conforme esse pacote.</p>
+
+  <div class="callout callout--concept">
+    <p class="callout-label">São duas funções diferentes</p>
+    <p>O Bearer token identificava o usuário. No fluxo novo, quem autentica é o <strong>cookie de sessão</strong>; o cookie <code>XSRF-TOKEN</code> e o cabeçalho <code>X-XSRF-TOKEN</code> protegem as operações que alteram dados contra CSRF. O token CSRF não substitui a credencial de autenticação.</p>
+  </div>
+
+  <h3>1. Reaproveite as rotas do catálogo</h3>
+  <p>Mantenha o grupo <code>auth:sanctum</code> protegendo <code>books</code> e <code>genres</code>. Com <code>statefulApi()</code> e o domínio do navegador configurados como no Passo 2, esse guard aceita a sessão do navegador. Os controllers, services e Resources do catálogo não precisam mudar.</p>
+
+  <p>Se a versão antiga já tinha um <code>POST /api/login</code> para emitir Bearer, substitua a implementação pela versão de sessão do Passo 4. Não mantenha duas rotas com o mesmo método e caminho. Se um app mobile ou script ainda precisa emitir e revogar Bearer tokens, reserve caminhos próprios para esse cliente, por exemplo <code>POST /api/tokens</code> e <code>DELETE /api/tokens/current</code>. Proteja a rota de revogação com <code>auth:sanctum</code>, mantenha-a exclusiva para clientes Bearer e continue enviando o cabeçalho Bearer nesses pedidos.</p>
+
+  <h3>2. Troque as chamadas do navegador</h3>
+  <p>Remova a leitura do token salvo e o cabeçalho <code>Authorization</code>. No frontend deste projeto, o helper inicializa <code>/sanctum/csrf-cookie</code> antes da primeira chamada à API; não é preciso repetir essa chamada antes de cada cadastro, login ou requisição:</p>
+
+  <figure class="code code--js">
+    <figcaption>Frontend — substituição do cabeçalho Bearer</figcaption>
+    <pre><code><span class="diff-del">const token = localStorage.getItem('token');</span>
+<span class="diff-del">headers.set('Authorization', 'Bearer ' + token);</span>
+<span class="diff-add">import { api } from './http.js';</span>
+<span class="diff-add">const login = (credentials) =&gt; api('/api/login', {</span>
+<span class="diff-add">  method: 'POST',</span>
+<span class="diff-add">  body: credentials,</span>
+<span class="diff-add">});</span></code></pre>
+  </figure>
+
+  <p>O Axios envia <code>X-XSRF-TOKEN</code> automaticamente nas chamadas que alteram dados. Remova também o salvamento do Bearer token em <code>localStorage</code> ou <code>sessionStorage</code>. Peça que cada usuário faça login novamente: um Bearer token existente não se transforma em sessão.</p>
+
+  <h3>3. Decida como tratar os tokens existentes</h3>
+  <ul>
+    <li>Se só o navegador usava Bearer, migre o frontend e revogue os tokens antigos depois que os usuários fizerem login novamente.</li>
+    <li>Se outros clientes ainda usam Bearer, mantenha a emissão desses tokens em uma rota separada e preserve o trait <code>HasApiTokens</code> e a tabela <code>personal_access_tokens</code> enquanto forem necessários.</li>
+    <li>O logout de sessão desta aula encerra a sessão do navegador; ele não revoga os Bearer tokens de outros dispositivos. Mantenha um fluxo separado para revogá-los.</li>
+  </ul>
+
+  <p>Não apague a tabela <code>personal_access_tokens</code> nem revogue tokens em lote como parte automática da migração. Com Personal Access Tokens do Sanctum e o trait <code>HasApiTokens</code> mantidos, o guard pode aceitar sessões stateful e Bearer tokens nas mesmas rotas protegidas; os tokens antigos continuam válidos enquanto a aplicação os aceitar e eles não forem expirados ou revogados. Neste tutorial, o proxy mantém o frontend e a API na mesma origem do navegador, então CORS não é usado. Se você optar por chamar outro host ou subdomínio diretamente, ajuste os domínios stateful, CORS e o domínio do cookie conforme a <a href="https://laravel.com/docs/12.x/sanctum#cors-and-cookies">documentação do Sanctum</a>.</p>
+
+  <div class="verify">
+    <h4>Checklist da migração</h4>
+    <ul class="checklist">
+      <li><label><input type="checkbox" data-ck="migration-1"> <span>A camada Axios inicializa o cookie CSRF antes da primeira chamada à API e reutiliza os cookies nas chamadas seguintes.</span></label></li>
+      <li><label><input type="checkbox" data-ck="migration-2"> <span>O navegador não lê, salva ou envia Bearer token.</span></label></li>
+      <li><label><input type="checkbox" data-ck="migration-3"> <span>Os CRUDs continuam protegidos por <code>auth:sanctum</code> e funcionam com a sessão.</span></label></li>
+      <li><label><input type="checkbox" data-ck="migration-4"> <span>Clientes mobile ou scripts que ainda usam Bearer têm uma rota de emissão e logout próprios.</span></label></li>
+      <li><label><input type="checkbox" data-ck="migration-5"> <span>Tokens antigos só foram revogados depois de confirmar que nenhum cliente depende deles.</span></label></li>
+    </ul>
+  </div>
+</section>
+
+
+<footer class="end">
+  <p>BookShelf API protegida — Módulo 4, Aula 2 do Curso de Programação. Continuação direta da Aula 1: <a href="laravel.html">BookShelf API: aprenda Laravel 12 construindo uma API REST completa</a>.</p>
+  <p>Referências: <a href="https://laravel.com/docs/12.x/sanctum">Laravel 12 — Sanctum</a> · <a href="https://laravel.com/docs/12.x/csrf">Laravel 12 — CSRF Protection</a> · <a href="https://laravel.com/docs/12.x/session">Laravel 12 — Session</a></p>
+</footer>
+
+</main>
+
+<script>
+(function () {
+  // Persist checklist state in localStorage (own namespace, so it does not
+  // collide with the Aula 1 checklists)
+  var boxes = document.querySelectorAll('.checklist input[type="checkbox"]');
+  Array.prototype.forEach.call(boxes, function (cb) {
+    var key = 'bookshelf-sanctum-session:' + cb.getAttribute('data-ck');
+    try {
+      if (localStorage.getItem(key) === '1') { cb.checked = true; }
+    } catch (e) {}
+    cb.addEventListener('change', function () {
+      try { localStorage.setItem(key, cb.checked ? '1' : '0'); } catch (e) {}
+    });
+  });
+
+  // Highlight the current section in the table of contents
+  var links = document.querySelectorAll('.toc a');
+  var map = {};
+  Array.prototype.forEach.call(links, function (a) {
+    map[a.getAttribute('href').slice(1)] = a;
+  });
+  var sections = document.querySelectorAll('main section[id]');
+  if ('IntersectionObserver' in window) {
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting && map[entry.target.id]) {
+          Array.prototype.forEach.call(links, function (a) { a.classList.remove('active'); });
+          map[entry.target.id].classList.add('active');
+        }
+      });
+    }, { rootMargin: '-15% 0px -75% 0px' });
+    Array.prototype.forEach.call(sections, function (s) { observer.observe(s); });
+  }
+
+  // Add a "copy" button to every code block
+  var copyIcon = '<svg class="code-copy-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5V4A1.5 1.5 0 0 0 9 2.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1.5"/></svg>';
+  var checkIcon = '<svg class="code-copy-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg>';
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text);
+    }
+    return new Promise(function (resolve, reject) {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        var ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        ok ? resolve() : reject();
+      } catch (e) { reject(e); }
+    });
+  }
+
+  // Everything the terminal prints back — prompts, results, responses — is
+  // marked up so it can be shown but never copied. What lands on the
+  // clipboard is exactly what you can paste and run.
+  function copyableText(codeEl) {
+    var clone = codeEl.cloneNode(true);
+    // whole lines that are not yours to run: removed diff lines and output
+    Array.prototype.forEach.call(clone.querySelectorAll('.diff-del, .out'), function (el) {
+      var next = el.nextSibling;
+      if (next && next.nodeType === 3) { next.textContent = next.textContent.replace(/^\n/, ''); }
+      el.parentNode.removeChild(el);
+    });
+    // inline prompt markers ("> " in tinker, "$ " in the shell)
+    Array.prototype.forEach.call(clone.querySelectorAll('.pr'), function (el) {
+      el.parentNode.removeChild(el);
+    });
+    return clone.textContent
+      .replace(/[ \t]+$/gm, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .replace(/^\n+/, '')
+      .replace(/\s+$/, '');
+  }
+
+  var blocks = document.querySelectorAll('figure.code');
+  Array.prototype.forEach.call(blocks, function (fig) {
+    var codeEl = fig.querySelector('pre code');
+    var caption = fig.querySelector('figcaption');
+    if (!codeEl || !caption) { return; }
+    // output-only blocks (and diagrams) are there to be read, not run
+    if (fig.classList.contains('code--out') || fig.hasAttribute('data-nocopy')) { return; }
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'code-copy';
+    btn.setAttribute('aria-label', 'Copiar código');
+    btn.innerHTML = copyIcon + checkIcon + '<span class="code-copy-label" role="status" aria-live="polite" aria-atomic="true">Copiar</span>';
+    caption.appendChild(btn);
+
+    var label = btn.querySelector('.code-copy-label');
+    var resetTimer;
+    btn.addEventListener('click', function () {
+      copyText(copyableText(codeEl)).then(function () {
+        btn.classList.add('is-copied');
+        label.textContent = 'Copiado!';
+        clearTimeout(resetTimer);
+        resetTimer = setTimeout(function () {
+          btn.classList.remove('is-copied');
+          label.textContent = 'Copiar';
+        }, 2000);
+      }).catch(function () {
+        label.textContent = 'Erro';
+        clearTimeout(resetTimer);
+        resetTimer = setTimeout(function () { label.textContent = 'Copiar'; }, 2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>
