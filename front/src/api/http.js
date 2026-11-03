@@ -8,29 +8,19 @@ const http = axios.create({
   headers: { Accept: 'application/json' },
 })
 
-let csrfCookieRequest = null
 let csrfCookieReady = false
 
 async function ensureCsrfCookie() {
   if (csrfCookieReady) return
 
-  if (!csrfCookieRequest) {
-    csrfCookieRequest = http
-      .get('/sanctum/csrf-cookie')
-      .then(() => {
-        csrfCookieReady = true
-      })
-      .catch(() => {
-        throw new Error(
-          'Não foi possível iniciar uma sessão segura. Verifique se a API está disponível.',
-        )
-      })
-      .finally(() => {
-        csrfCookieRequest = null
-      })
+  try {
+    await http.get('/sanctum/csrf-cookie')
+    csrfCookieReady = true
+  } catch {
+    throw new Error(
+      'Não foi possível iniciar uma sessão segura. Verifique se a API está disponível.',
+    )
   }
-
-  await csrfCookieRequest
 }
 
 function normalizeError(error) {
@@ -53,9 +43,7 @@ function normalizeError(error) {
 export async function api(path, options = {}) {
   const method = options.method ?? 'GET'
   const body = options.body
-  const headers = options.headers ?? {}
   const upperMethod = method.toUpperCase()
-  const requestHeaders = { ...headers }
 
   await ensureCsrfCookie()
 
@@ -64,7 +52,6 @@ export async function api(path, options = {}) {
       url: path,
       method: upperMethod,
       data: body,
-      headers: requestHeaders,
     })
     return response.data
   } catch (error) {

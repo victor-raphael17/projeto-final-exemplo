@@ -407,14 +407,14 @@ footer.end {
 <section class="step" id="proxy-compose">
   <h2><span class="step-badge step-badge--alt">Antes do Passo 1</span> Unindo frontend e API com o proxy do Compose</h2>
 
-  <p>Os containers do frontend e da API têm endereços internos diferentes. Sem um ponto de entrada comum, o navegador teria que chamar uma URL de API com outra porta e configurar CORS. Adicione um serviço Nginx ao <code>compose.yaml</code>: ele publica a porta 80 e encaminha cada caminho ao container correto.</p>
+  <p>Os containers do frontend e da API têm endereços internos diferentes. Sem um ponto de entrada comum, o navegador teria que chamar uma URL de API com outra porta e configurar CORS. Adicione um serviço Nginx ao <code>compose.yaml</code>: ele publica a porta 80 e encaminha cada caminho ao container correto. Neste projeto, os arquivos do proxy ficam na pasta <code>proxy/</code>.</p>
 
   <figure class="code code--file">
     <figcaption>compose.yaml — serviço proxy</figcaption>
     <pre><code>  proxy:
     container_name: proxy
     build:
-      context: ./nginx
+      context: ./proxy
       dockerfile: Dockerfile
     depends_on:
       api:
@@ -425,17 +425,17 @@ footer.end {
       - "80:80"</code></pre>
   </figure>
 
-  <p>O proxy precisa de um arquivo <code>nginx/default.conf</code> com regras para os três caminhos. Os nomes <code>api</code> e <code>frontend</code> são os nomes dos serviços no Compose:</p>
+  <p>O proxy precisa dos arquivos <code>proxy/Dockerfile</code> e <code>proxy/default.conf</code> com regras para os três caminhos. Os nomes <code>api</code> e <code>frontend</code> são os nomes dos serviços no Compose:</p>
 
   <figure class="code code--file">
-    <figcaption>nginx/Dockerfile</figcaption>
+    <figcaption>proxy/Dockerfile</figcaption>
     <pre><code>FROM nginx:alpine
 COPY default.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80</code></pre>
   </figure>
 
   <figure class="code code--file">
-    <figcaption>nginx/default.conf</figcaption>
+    <figcaption>proxy/default.conf</figcaption>
     <pre><code>server {
     listen 80;
     server_name localhost;
@@ -474,8 +474,9 @@ EXPOSE 80</code></pre>
   <p>Depois do login, o Laravel cria uma sessão e devolve um cookie. O frontend envia chamadas relativas ao mesmo endereço, como <code>/api/me</code>. O navegador envia cookies automaticamente em chamadas same-origin, e o proxy encaminha o caminho à API. O navegador não precisa conhecer a porta interna do container Laravel.</p>
 
   <ol class="flow">
-    <li>O frontend chama <code>/sanctum/csrf-cookie</code> na origem atual, <code>http://localhost</code>.</li>
-    <li>O frontend envia e-mail e senha para <code>/api/login</code> na mesma origem.</li>
+    <li>Na primeira chamada à API, o helper Axios inicializa a proteção CSRF por <code>/sanctum/csrf-cookie</code>.</li>
+    <li>Ao abrir o frontend, <code>getCurrentUser()</code> consulta <code>/api/me</code>; sem login, a API responde <strong>401</strong> e a tela de autenticação aparece.</li>
+    <li>Ao enviar o formulário, o frontend envia e-mail e senha para <code>/api/login</code> na mesma origem.</li>
     <li>O Laravel cria a sessão e devolve o cookie de sessão.</li>
     <li>O navegador envia o cookie nas próximas chamadas à API.</li>
   </ol>
@@ -505,13 +506,13 @@ EXPOSE 80</code></pre>
   <p>Ative o modo stateful e liste o host que o navegador usa para abrir o frontend. Neste projeto, esse host é <code>localhost</code>, então a porta 80 padrão não precisa aparecer:</p>
 
   <figure class="code code--file">
-    <figcaption>.env</figcaption>
+    <figcaption>api/.env</figcaption>
     <pre><code>APP_URL=http://localhost
 SANCTUM_STATEFUL_DOMAINS=localhost
 SESSION_SECURE_COOKIE=false</code></pre>
   </figure>
 
-  <p>Esses são os valores efetivos do projeto: o <code>.env</code> define <code>localhost</code> para o Laravel e para o Sanctum. O arquivo <code>config/sanctum.php</code> também traz uma lista padrão que inclui <code>127.0.0.1</code>, mas ela só é usada quando <code>SANCTUM_STATEFUL_DOMAINS</code> não está definido. Use no navegador o mesmo host configurado no <code>.env</code>: <code>http://localhost</code>.</p>
+  <p>Esses são os valores efetivos do projeto: <code>api/.env</code> define <code>localhost</code> para o Laravel e para o Sanctum. O arquivo <code>api/config/sanctum.php</code> também traz uma lista padrão que inclui <code>127.0.0.1</code>, mas ela só é usada quando <code>SANCTUM_STATEFUL_DOMAINS</code> não está definido. Use no navegador o mesmo host configurado no <code>api/.env</code>: <code>http://localhost</code>.</p>
 
   <p>Se publicar o proxy em outra porta, inclua a porta vista pelo navegador, por exemplo <code>localhost:8080</code>. Use a porta publicada do proxy, não a porta interna dos containers. Em produção com HTTPS, use <code>SESSION_SECURE_COOKIE=true</code>.</p>
 
@@ -813,39 +814,40 @@ use Illuminate\Support\Facades\Route;
 <section class="step" id="passo-6">
   <h2><span class="step-badge">Passo 6</span> Chamando a API no navegador</h2>
 
-  <p>O frontend deste projeto centraliza as chamadas em <code>front/src/api/http.js</code>, um helper baseado em Axios. Com o proxy do Compose, deixe <code>VITE_API_BASE_URL</code> sem definir: os caminhos relativos usam <code>http://localhost</code>, e o Nginx encaminha <code>/api</code> e <code>/sanctum</code> aos containers. Não é necessário <code>withCredentials</code> nesse fluxo same-origin.</p>
+  <p>O frontend é compilado e servido pelo Compose na origem <code>http://localhost</code>. O arquivo <code>front/.env</code> do projeto define <code>VITE_API_BASE_URL=http://localhost</code>, que aponta para o proxy publicado na porta 80. Assim, o Axios usa a mesma origem que o navegador; o proxy encaminha <code>/api</code> e <code>/sanctum</code> aos containers. Não use <code>http://api:8000</code> no frontend e não é necessário <code>withCredentials</code> nesse fluxo.</p>
+
+  <figure class="code code--file">
+    <figcaption>front/.env</figcaption>
+    <pre><code>VITE_API_BASE_URL=http://localhost</code></pre>
+  </figure>
+
+  <p>Este fluxo usa <code>docker compose up --build</code> e a página <code>http://localhost</code>. O arquivo <code>front/.env</code> está configurado para esse acesso. Iniciar o Vite diretamente em outra porta, como <code>localhost:5173</code>, é outro modo de execução e exige ajustar a URL base para usar o proxy de desenvolvimento.</p>
 
   <figure class="code code--js">
-    <figcaption>Frontend — módulo de cadastro usando o helper do projeto</figcaption>
-    <pre><code>import { api } from '../http.js';
+    <figcaption>front/src/api/auth/register.js</figcaption>
+    <pre><code>import { api } from '../http.js'
 
 export function register(account) {
   return api('/api/register', {
     method: 'POST',
     body: account,
-  });
-}
-
-// Exemplo de dados enviados pelo formulário:
-const account = {
-  name: 'Ada Lovelace',
-  email: 'ada@example.com',
-  password: 'example-password',
-  password_confirmation: 'example-password',
-};
-
-await register(account);</code></pre>
+  })
+}</code></pre>
   </figure>
 
-  <p>O helper exporta <code>api(path, options)</code>. Ele inicializa o cookie CSRF antes da primeira chamada à API, inclusive se ela for <code>GET</code>. Depois que a inicialização dá certo, as chamadas seguintes reutilizam os cookies guardados pelo navegador; chamadas simultâneas compartilham a mesma inicialização. Um novo carregamento da página inicializa o helper novamente.</p>
+  <p>Esse módulo usa o helper <code>api(path, options)</code> de <code>front/src/api/http.js</code>. Antes da primeira chamada à API, inclusive se ela for <code>GET</code>, o helper aguarda <code>GET /sanctum/csrf-cookie</code>. Depois que essa chamada dá certo, as próximas reutilizam os cookies guardados pelo navegador. Um novo carregamento da página inicializa o helper novamente. O módulo de login segue o mesmo padrão e envia <code>email</code> e <code>password</code>.</p>
 
   <figure class="code code--js">
-    <figcaption>JavaScript — consulta de usuário e catálogo</figcaption>
-    <pre><code>const me = await api('/api/me');
-const books = await api('/api/books');</code></pre>
+    <figcaption>front/src/api/auth/me.js</figcaption>
+    <pre><code>import { api, resourceData } from '../http.js'
+
+export async function getCurrentUser() {
+  const response = await api('/api/me')
+  return resourceData(response)
+}</code></pre>
   </figure>
 
-  <p>O Axios do helper está configurado com <code>withXSRFToken: true</code>: ele lê o cookie <code>XSRF-TOKEN</code> e envia <code>X-XSRF-TOKEN</code> nas operações que alteram dados. Por usarem a mesma origem, o navegador envia o cookie de sessão sem <code>withCredentials: true</code>. Não salve a sessão em <code>localStorage</code> nem envie <code>Authorization: Bearer</code>.</p>
+  <p>O Axios do helper está configurado com <code>withXSRFToken: true</code>: ele lê o cookie <code>XSRF-TOKEN</code> e envia <code>X-XSRF-TOKEN</code> nas operações que alteram dados. O <code>app.js</code> chama <code>getCurrentUser()</code> ao iniciar; com uma sessão válida, carrega livros e gêneros. Por usar a mesma origem, o navegador envia o cookie de sessão sem <code>withCredentials: true</code>. Não salve a sessão em <code>localStorage</code> nem envie <code>Authorization: Bearer</code>.</p>
 </section>
 
 <section class="step" id="passo-7">
@@ -853,26 +855,31 @@ const books = await api('/api/books');</code></pre>
 
   <p>O cookie mantém a sessão até o usuário sair ou ela expirar. O tempo é controlado pela configuração de sessão do Laravel, como <code>SESSION_LIFETIME</code>.</p>
 
-  <p>O botão de logout faz um <code>POST</code> para <code>/api/logout</code>. O helper do projeto envia o cabeçalho CSRF automaticamente:</p>
+  <p>O botão de logout chama <code>logout()</code> em <code>front/src/api/auth/logout.js</code>. Esse módulo usa o helper e envia um <code>POST</code> para <code>/api/logout</code>:</p>
 
   <figure class="code code--js">
-    <figcaption>JavaScript — logout pelo helper</figcaption>
-    <pre><code>await api('/api/logout', { method: 'POST' });</code></pre>
+    <figcaption>front/src/api/auth/logout.js</figcaption>
+    <pre><code>import { api } from '../http.js'
+
+export function logout() {
+  return api('/api/logout', {
+    method: 'POST',
+  })
+}</code></pre>
   </figure>
 
-  <p>Depois disso, <code>/api/me</code> deve responder <strong>401</strong>. Para entrar novamente com a conta criada no passo anterior, use o mesmo helper. Ele cuida da inicialização CSRF; não é preciso chamar o endpoint manualmente antes de cada requisição:</p>
+  <p>Depois disso, <code>/api/me</code> deve responder <strong>401</strong>. O login também fica em um módulo próprio; o handler do formulário monta <code>credentials</code> e chama <code>login(credentials)</code>. O helper cuida da inicialização CSRF, então não é preciso chamar o endpoint manualmente antes de cada requisição:</p>
 
   <figure class="code code--js">
-    <figcaption>JavaScript — login</figcaption>
-    <pre><code>const login = await api('/api/login', {
-  method: 'POST',
-  body: {
-    email: 'ada@example.com',
-    password: 'example-password',
-  },
-});
+    <figcaption>front/src/api/auth/login.js</figcaption>
+    <pre><code>import { api } from '../http.js'
 
-console.log(login);</code></pre>
+export function login(credentials) {
+  return api('/api/login', {
+    method: 'POST',
+    body: credentials,
+  })
+}</code></pre>
   </figure>
 
   <p>Um <code>POST /api/login</code> com credenciais inválidas retorna <strong>422</strong> e uma mensagem de validação; isso não indica falha do proxy ou do cookie CSRF.</p>

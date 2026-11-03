@@ -54,7 +54,7 @@ services:
   proxy:
     container_name: proxy
     build:
-      context: ./nginx
+      context: ./proxy
       dockerfile: Dockerfile
     depends_on:
       api:
