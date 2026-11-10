@@ -1,0 +1,906 @@
+openapi: 3.0.3
+info:
+  title: Bookshelf API
+  version: 1.0.0
+  description: >-
+    Documentação da API Laravel existente. O fluxo de autenticação usa a sessão
+    do Laravel Sanctum: registro e login criam a sessão, e as rotas privadas
+    recebem a cookie de sessão pelo navegador. Não há emissão de token Bearer
+    pelo fluxo atual.
+
+    A Swagger UI desta mesma origem está configurada para enviar cookies e, antes
+    de cada POST, PUT, PATCH ou DELETE, fazer GET em `/sanctum/csrf-cookie`, ler
+    a cookie legível `XSRF-TOKEN` e enviar seu valor decodificado no header
+    `X-XSRF-TOKEN`. Em chamadas próprias, preserve as cookies entre requisições
+    e repita esse passo antes de toda operação que altera dados. Registro e login
+    também exigem CSRF.
+servers:
+  - url: /api
+    description: Mesmo host da documentação e do proxy.
+tags:
+  - name: Autenticação
+    description: Registro, login, usuário atual e logout por sessão Laravel.
+  - name: Gêneros
+    description: Operações autenticadas de gêneros.
+  - name: Livros
+    description: Operações autenticadas de livros.
+  - name: Sessão e CSRF
+    description: Endpoint auxiliar do Laravel Sanctum para inicializar a sessão CSRF.
+paths:
+  /register:
+    post:
+      tags: [Autenticação]
+      summary: Registrar usuário
+      description: >-
+        Valida os campos, cria o usuário, autentica-o pela guard `web` e regenera
+        a sessão. Antes da chamada, obtenha a cookie CSRF em
+        `/sanctum/csrf-cookie` e envie `X-XSRF-TOKEN`.
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            example:
+              name: Ana Silva
+              email: ana@example.com
+              password: senha-segura
+              password_confirmation: senha-segura
+      responses:
+        '201':
+          description: Usuário criado e sessão iniciada. A resposta usa UserResource.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '419':
+          $ref: '#/components/responses/CsrfMismatch'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /login:
+    post:
+      tags: [Autenticação]
+      summary: Iniciar sessão
+      description: >-
+        Autentica pela guard `web` e regenera a sessão. Credenciais inválidas
+        também retornam 422, com o erro associado a `email`. Antes da chamada,
+        obtenha a cookie CSRF e envie `X-XSRF-TOKEN`.
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: ana@example.com
+              password: senha-segura
+      responses:
+        '200':
+          description: Login concluído e sessão iniciada. A resposta usa UserResource.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '419':
+          $ref: '#/components/responses/CsrfMismatch'
+        '422':
+          description: Dados inválidos ou e-mail/senha incorretos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                credenciaisInvalidas:
+                  summary: Credenciais incorretas
+                  value:
+                    message: The given data was invalid.
+                    errors:
+                      email:
+                        - E-mail ou senha inválidos.
+                validacao:
+                  summary: Campo obrigatório ausente
+                  value:
+                    message: The email field is required.
+                    errors:
+                      email:
+                        - The email field is required.
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /me:
+    get:
+      tags: [Autenticação]
+      summary: Obter usuário autenticado
+      operationId: getCurrentUser
+      security:
+        - LaravelSession: []
+      responses:
+        '200':
+          description: Usuário atual, envelopado por UserResource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+  /logout:
+    post:
+      tags: [Autenticação]
+      summary: Encerrar sessão
+      description: >-
+        Faz logout pela guard `web`, invalida a sessão e regenera o token CSRF.
+        Exige a cookie de sessão e um token CSRF válido.
+      operationId: logout
+      security:
+        - LaravelSession: []
+      responses:
+        '204':
+          description: Sessão encerrada, sem corpo na resposta.
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '419':
+          $ref: '#/components/responses/CsrfMismatch'
+
+  /genres:
+    get:
+      tags: [Gêneros]
+      summary: Listar gêneros
+      description: Retorna todos os gêneros em `data`, sem paginação.
+      operationId: listGenres
+      security:
+        - LaravelSession: []
+      responses:
+        '200':
+          description: Coleção de GenreResource em envelope `data`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenreCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+    post:
+      tags: [Gêneros]
+      summary: Criar gênero
+      description: >-
+        A resposta é o model Genre diretamente, sem envelope `data`.
+        `description` omitido ou nulo é armazenado como nulo.
+      operationId: createGenre
+      security:
+        - LaravelSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreGenreRequest'
+            example:
+              name: Ficção científica
+              description: Histórias especulativas.
+      responses:
+        '201':
+          description: Gênero criado; model diretamente no corpo, incluindo timestamps.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenreModel'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '419':
+          $ref: '#/components/responses/CsrfMismatch'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /genres/{genre}:
+    parameters:
+      - $ref: '#/components/parameters/GenreId'
+    get:
+      tags: [Gêneros]
+      summary: Obter gênero
+      description: Resposta envelopada por GenreResource em `data`.
+      operationId: getGenre
+      security:
+        - LaravelSession: []
+      responses:
+        '200':
+          description: Gênero encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenreEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Gêneros]
+      summary: Atualizar gênero
+      description: >-
+        `name` pode ser omitido, mas, se enviado, é obrigatório, string e tem
+        no máximo 255 caracteres. `description` pode ser omitido ou nulo. A
+        resposta é o model diretamente, sem `data`.
+      operationId: replaceGenre
+      security:
+        - LaravelSession: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGenreRequest'
+            example:
+              name: Fantasia
+              description: null
+      responses:
+        '200':
+          description: Gênero atualizado; model diretamente no corpo, incluindo timestamps.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenreModel'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '419':
+          $ref: '#/components/responses/CsrfMismatch'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    patch:
+      tags: [Gêneros]
+      summary: Atualizar parcialmente gênero
+      description: Usa as mesmas regras de validação e resposta de PUT.
+      operationId: updateGenre
+      security:
+        - LaravelSession: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGenreRequest'
+      responses:
+        '200':
+          description: Gênero atualizado; model diretamente no corpo, incluindo timestamps.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenreModel'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '419':
+          $ref: '#/components/responses/CsrfMismatch'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      tags: [Gêneros]
+      summary: Excluir gênero
+      description: >-
+        A exclusão do gênero também exclui os livros relacionados, conforme a
+        chave estrangeira `genre_id` com cascade definido na migration.
+      operationId: deleteGenre
+      security:
+        - LaravelSession: []
+      responses:
+        '204':
+          description: Gênero excluído, sem corpo na resposta.
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '419':
+          $ref: '#/components/responses/CsrfMismatch'
+
+  /books:
+    get:
+      tags: [Livros]
+      summary: Listar livros
+      description: >-
+        Retorna todos os livros em `data`, sem paginação. A coleção carrega
+        `genre` com somente `id` e `name`; a resposta usa BookResource.
+      operationId: listBooks
+      security:
+        - LaravelSession: []
+      responses:
+        '200':
+          description: Coleção de BookResource em envelope `data`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+    post:
+      tags: [Livros]
+      summary: Criar livro
+      description: >-
+        A resposta é o model Book diretamente, sem envelope `data`, e inclui
+        `genre_id` e timestamps, sem a relação `genre`. `status` omitido usa
+        o padrão `to_read`. Embora `rating` aceite inteiro de 1 a 5, o service
+        o grava como nulo sempre que o status final não é `finished`.
+      operationId: createBook
+      security:
+        - LaravelSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreBookRequest'
+            example:
+              genre_id: 1
+              title: Duna
+              author: Frank Herbert
+              pages: 688
+              status: finished
+              rating: 5
+      responses:
+        '201':
+          description: Livro criado; model diretamente no corpo, incluindo timestamps.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookModel'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '419':
+          $ref: '#/components/responses/CsrfMismatch'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /books/{book}:
+    parameters:
+      - $ref: '#/components/parameters/BookId'
+    get:
+      tags: [Livros]
+      summary: Obter livro
+      description: >-
+        Resposta envelopada por BookResource em `data`; a relação `genre`
+        carregada contém `id` e `name`.
+      operationId: getBook
+      security:
+        - LaravelSession: []
+      responses:
+        '200':
+          description: Livro encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Livros]
+      summary: Atualizar livro
+      description: >-
+        Todos os campos são opcionais. `genre_id`, `title` e `author`, quando
+        enviados, continuam obrigatórios e seguem as regras de criação. `pages`
+        e `rating` aceitam nulo. `status` aceita somente `to_read`, `reading` ou
+        `finished`. Se o status final não for `finished`, o service limpa
+        `rating`; ao mudar para `finished`, um rating omitido preserva o valor
+        atual. A resposta é o model diretamente, sem `data` e sem a relação
+        `genre`.
+      operationId: replaceBook
+      security:
+        - LaravelSession: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBookRequest'
+            example:
+              status: reading
+              rating: null
+      responses:
+        '200':
+          description: Livro atualizado; model diretamente no corpo, incluindo timestamps.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookModel'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '419':
+          $ref: '#/components/responses/CsrfMismatch'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    patch:
+      tags: [Livros]
+      summary: Atualizar parcialmente livro
+      description: Usa as mesmas regras de validação e resposta de PUT.
+      operationId: updateBook
+      security:
+        - LaravelSession: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBookRequest'
+      responses:
+        '200':
+          description: Livro atualizado; model diretamente no corpo, incluindo timestamps.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookModel'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '419':
+          $ref: '#/components/responses/CsrfMismatch'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      tags: [Livros]
+      summary: Excluir livro
+      operationId: deleteBook
+      security:
+        - LaravelSession: []
+      responses:
+        '204':
+          description: Livro excluído, sem corpo na resposta.
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '419':
+          $ref: '#/components/responses/CsrfMismatch'
+
+  /sanctum/csrf-cookie:
+    get:
+      servers:
+        - url: /
+          description: Mesmo host, sem o prefixo /api.
+      tags: [Sessão e CSRF]
+      summary: Inicializar cookie CSRF
+      description: >-
+        Endpoint do Sanctum fora do prefixo `/api`. O navegador recebe as
+        cookies da sessão e `XSRF-TOKEN`; a Swagger UI chama este endpoint
+        automaticamente antes dos métodos que alteram dados.
+      operationId: getCsrfCookie
+      responses:
+        '204':
+          description: Cookies definidas pelo Laravel; sem corpo na resposta.
+
+components:
+  securitySchemes:
+    LaravelSession:
+      type: apiKey
+      in: cookie
+      name: laravel-session
+      description: >-
+        Cookie de sessão HttpOnly do Laravel (nome padrão com APP_NAME=Laravel;
+        `SESSION_COOKIE` pode substituir o nome). Na Swagger UI de mesma origem,
+        o navegador a envia automaticamente. Não é um token Bearer e não é
+        necessário preencher manualmente o diálogo Authorize.
+  parameters:
+    GenreId:
+      name: genre
+      in: path
+      required: true
+      description: ID numérico do gênero.
+      schema:
+        type: integer
+        format: int64
+        minimum: 0
+      example: 1
+    BookId:
+      name: book
+      in: path
+      required: true
+      description: ID numérico do livro.
+      schema:
+        type: integer
+        format: int64
+        minimum: 0
+      example: 1
+  responses:
+    Unauthenticated:
+      description: Sessão ausente ou inválida.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MessageError'
+          example:
+            message: Unauthenticated.
+    CsrfMismatch:
+      description: Cookie/token CSRF ausente, expirado ou incompatível.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MessageError'
+          example:
+            message: CSRF token mismatch.
+    NotFound:
+      description: O ID numérico não corresponde a um registro existente.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MessageError'
+          example:
+            message: No query results for model [App\Models\Book] 999.
+    ValidationError:
+      description: Falha de validação dos campos enviados.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+          example:
+            message: The title field is required.
+            errors:
+              title:
+                - The title field is required.
+    TooManyRequests:
+      description: Limite de tentativas excedido; login e registro permitem 6 tentativas por minuto.
+      headers:
+        Retry-After:
+          description: Segundos até que uma nova tentativa possa ser feita, quando enviado pelo Laravel.
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/MessageError'
+          example:
+            message: Too Many Attempts.
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [name, email, password, password_confirmation]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          description: Deve ser único em users.email.
+        password:
+          type: string
+          minLength: 8
+        password_confirmation:
+          type: string
+          description: Deve ser igual a password.
+      example:
+        name: Ana Silva
+        email: ana@example.com
+        password: senha-segura
+        password_confirmation: senha-segura
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      example:
+        email: ana@example.com
+        password: senha-segura
+    User:
+      type: object
+      required: [id, name, email]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+    UserEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/User'
+      example:
+        data:
+          id: 1
+          name: Ana Silva
+          email: ana@example.com
+    StoreGenreRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+      example:
+        name: Ficção científica
+        description: Histórias especulativas.
+    UpdateGenreRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          description: Se enviado, é obrigatório e não pode ser nulo.
+        description:
+          type: string
+          nullable: true
+    Genre:
+      type: object
+      required: [id, name, description]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+    GenreEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/Genre'
+      example:
+        data:
+          id: 1
+          name: Ficção científica
+          description: Histórias especulativas.
+    GenreCollection:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Genre'
+      example:
+        data:
+          - id: 1
+            name: Ficção científica
+            description: Histórias especulativas.
+    GenreModel:
+      type: object
+      required: [id, name, description, created_at, updated_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+      example:
+        id: 1
+        name: Ficção científica
+        description: Histórias especulativas.
+        created_at: '2026-11-06T12:00:00.000000Z'
+        updated_at: '2026-11-06T12:00:00.000000Z'
+    StoreBookRequest:
+      type: object
+      required: [genre_id, title, author]
+      properties:
+        genre_id:
+          type: integer
+          format: int64
+          description: Deve corresponder ao ID de um gênero existente.
+        title:
+          type: string
+          maxLength: 255
+        author:
+          type: string
+          maxLength: 255
+        pages:
+          type: integer
+          minimum: 1
+          nullable: true
+        status:
+          type: string
+          enum: [to_read, reading, finished]
+          default: to_read
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+          description: Só é persistido se o status final for finished; nos demais estados o service armazena null.
+      example:
+        genre_id: 1
+        title: Duna
+        author: Frank Herbert
+        pages: 688
+        status: finished
+        rating: 5
+    UpdateBookRequest:
+      type: object
+      properties:
+        genre_id:
+          type: integer
+          format: int64
+          description: Se enviado, deve corresponder ao ID de um gênero existente.
+        title:
+          type: string
+          maxLength: 255
+          description: Se enviado, é obrigatório e não pode ser nulo.
+        author:
+          type: string
+          maxLength: 255
+          description: Se enviado, é obrigatório e não pode ser nulo.
+        pages:
+          type: integer
+          minimum: 1
+          nullable: true
+        status:
+          type: string
+          enum: [to_read, reading, finished]
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+          description: Se o status final não for finished, o service limpa este valor.
+    GenreSummary:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+    Book:
+      type: object
+      required: [id, title, author, pages, status, rating, genre]
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        author:
+          type: string
+        pages:
+          type: integer
+          nullable: true
+        status:
+          type: string
+          enum: [to_read, reading, finished]
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        genre:
+          $ref: '#/components/schemas/GenreSummary'
+    BookEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/Book'
+      example:
+        data:
+          id: 7
+          title: Duna
+          author: Frank Herbert
+          pages: 688
+          status: finished
+          rating: 5
+          genre:
+            id: 1
+            name: Ficção científica
+    BookCollection:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Book'
+      example:
+        data:
+          - id: 7
+            title: Duna
+            author: Frank Herbert
+            pages: 688
+            status: finished
+            rating: 5
+            genre:
+              id: 1
+              name: Ficção científica
+    BookModel:
+      type: object
+      required: [id, genre_id, title, author, pages, status, rating, created_at, updated_at]
+      properties:
+        id:
+          type: integer
+          format: int64
+        genre_id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        author:
+          type: string
+        pages:
+          type: integer
+          nullable: true
+        status:
+          type: string
+          enum: [to_read, reading, finished]
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+      example:
+        id: 7
+        genre_id: 1
+        title: Duna
+        author: Frank Herbert
+        pages: 688
+        status: finished
+        rating: 5
+        created_at: '2026-11-06T12:00:00.000000Z'
+        updated_at: '2026-11-06T12:00:00.000000Z'
+    MessageError:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+    ValidationError:
+      type: object
+      required: [message, errors]
+      properties:
+        message:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string

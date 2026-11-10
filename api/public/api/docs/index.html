@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Documentação da API</title>
+    <link rel="stylesheet" href="/api/docs/assets/swagger-ui.css">
+    <style>
+        html { box-sizing: border-box; overflow-y: scroll; }
+        *, *::before, *::after { box-sizing: inherit; }
+        body { margin: 0; background: #fafafa; }
+        .csrf-note {
+            max-width: 1460px;
+            margin: 18px auto 0;
+            padding: 12px 20px;
+            color: #334155;
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            font: 14px/1.5 sans-serif;
+        }
+        .csrf-note code { color: #1e3a8a; }
+    </style>
+</head>
+<body>
+    <div class="csrf-note">
+        A autenticação usa a sessão do Laravel. Nesta página, as cookies são enviadas
+        automaticamente ao mesmo host e, antes de cada operação que altera dados, a UI
+        obtém <code>/sanctum/csrf-cookie</code> e envia <code>X-XSRF-TOKEN</code>.
+    </div>
+    <div id="api-docs"></div>
+
+    <!-- Swagger UI 5.34.1, distribuído localmente em api/public/api/docs/assets. -->
+    <script src="/api/docs/assets/swagger-ui-bundle.js"></script>
+    <script src="/api/docs/assets/swagger-ui-standalone-preset.js"></script>
+    <script>
+        window.addEventListener('load', function () {
+            window.ui = SwaggerUIBundle({
+                url: '/api/docs/openapi.yaml',
+                dom_id: '#api-docs',
+                deepLinking: true,
+                displayRequestDuration: true,
+                filter: true,
+                persistAuthorization: false,
+                withCredentials: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIStandalonePreset,
+                ],
+                layout: 'StandaloneLayout',
+                requestInterceptor: async function (request) {
+                    const method = (request.method || 'GET').toUpperCase();
+                    const mutatingMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
+
+                    if (!mutatingMethods.includes(method)) {
+                        return request;
+                    }
+
+                    const target = new URL(request.url, window.location.href);
+                    if (target.origin !== window.location.origin) {
+                        return request;
+                    }
+
+                    const csrfResponse = await fetch('/sanctum/csrf-cookie', {
+                        method: 'GET',
+                        credentials: 'same-origin',
+                        headers: { Accept: 'application/json' },
+                    });
+
+                    if (!csrfResponse.ok) {
+                        throw new Error('Não foi possível obter o cookie CSRF do Laravel.');
+                    }
+
+                    const xsrfCookie = document.cookie
+                        .split(';')
+                        .map(function (cookie) { return cookie.trim(); })
+                        .find(function (cookie) { return cookie.startsWith('XSRF-TOKEN='); });
+
+                    if (!xsrfCookie) {
+                        throw new Error('O endpoint CSRF não disponibilizou o cookie XSRF-TOKEN.');
+                    }
+
+                    request.headers = request.headers || {};
+                    request.headers['X-XSRF-TOKEN'] = decodeURIComponent(
+                        xsrfCookie.slice('XSRF-TOKEN='.length)
+                    );
+                    request.headers.Accept = 'application/json';
+
+                    return request;
+                },
+            });
+        });
+    </script>
+</body>
+</html>
