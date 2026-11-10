@@ -21,16 +21,6 @@ services:
     build:
       context: ./api
       dockerfile: Dockerfile.dev
-    depends_on:
-      mysql:
-        condition: service_healthy
-    environment:
-      DB_CONNECTION: mysql
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_DATABASE: bookshelf
-      DB_USERNAME: bookshelf
-      DB_PASSWORD: bookshelf
     expose:
       - "8000"
     volumes:
